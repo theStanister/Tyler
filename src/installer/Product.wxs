@@ -1,0 +1,167 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Tyler MSI installer (WiX v3).
+
+    Target: Windows x64 (64-bit), per-machine.
+    Bundle: the Native AOT publish output, which is exactly:
+        Tyler.exe
+        qpdf.dll
+        QuestPdfSkia.dll
+        QuestPDF.Fonts.Lato.br
+
+    The published app is fully self-contained (no .NET runtime, no system fonts,
+    no external DLLs). The only prerequisite is a 64-bit Windows.
+
+    Build with the WiX v3 toolset (candle + light). The two preprocessor
+    variables below are supplied by build-installer.ps1:
+
+        -dPublishDir="<absolute path to the publish folder>"
+        -dTylerVersion="<x.y.z>"
+
+    PublishDir defaults to the repo-relative src/bin/Release/net10.0/win-x64/publish.
+-->
+
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+
+    <!-- Stable upgrade code. Never change across releases so upgrades find and
+         replace prior installations. -->
+    <?define UpgradeCode = "3B8F1C2E-7A4D-4E9F-9B1A-2C5D6E7F8A9B" ?>
+
+    <!-- Overridable preprocessor variables (see build-installer.ps1). -->
+    <?ifndef PublishDir ?>
+        <?define PublishDir = "..\bin\Release\net10.0\win-x64\publish" ?>
+    <?endif?>
+    <?ifndef TylerVersion ?>
+        <?define TylerVersion = "1.0.0" ?>
+    <?endif?>
+    <?ifndef TylerIcon ?>
+        <?define TylerIcon = "Tyler.ico" ?>
+    <?endif?>
+
+    <Product Id="*"
+             Name="Tyler"
+             Language="1033"
+             Version="$(var.TylerVersion)"
+             Manufacturer="Tyler Contributors"
+             UpgradeCode="$(var.UpgradeCode)">
+
+        <Package InstallerVersion="500"
+                 Compressed="yes"
+                 InstallScope="perMachine"
+                 Manufacturer="Tyler Contributors"
+                 Description="Tyler - the image tiler that turns tall screenshots into printable multi-page PDFs"
+                 Languages="1033"
+                 Platform="x64" />
+
+        <MajorUpgrade DowngradeErrorMessage="A newer version of Tyler is already installed."
+                      Schedule="afterInstallExecute" />
+
+        <MediaTemplate EmbedCab="yes" />
+
+        <!-- Uninstall entry is registered automatically by the per-machine MSI
+             (Add/Remove Programs). No custom registry action is needed. -->
+
+        <Icon Id="TylerIcon.ico" SourceFile="$(var.TylerIcon)" />
+
+        <Property Id="ARPPRODUCTICON" Value="TylerIcon.ico" />
+
+        <Directory Id="TARGETDIR" Name="SourceDir">
+            <Directory Id="ProgramFiles64Folder">
+                <Directory Id="INSTALLFOLDER" Name="Tyler">
+                    <!-- All four publish outputs in one component each, with
+                         stable GUIDs tied to the file + install path. -->
+                    <Component Id="C_TylerExe"
+                               Guid="8A1F4D6B-3E2C-4A7F-9B0E-1C5D8F2A6B3C"
+                               Win64="yes">
+                        <File Id="F_TylerExe"
+                              Name="Tyler.exe"
+                              Source="$(var.PublishDir)\Tyler.exe"
+                              KeyPath="yes" />
+                    </Component>
+
+                    <Component Id="C_qpdfDll"
+                               Guid="6C9E2A4F-8D1B-4C7A-B3E0-5F2A8D9C4E7B"
+                               Win64="yes">
+                        <File Id="F_qpdfDll"
+                              Name="qpdf.dll"
+                              Source="$(var.PublishDir)\qpdf.dll"
+                              KeyPath="yes" />
+                    </Component>
+
+                    <Component Id="C_QuestPdfSkiaDll"
+                               Guid="4A7C3B9E-1F6D-4E2A-8C5B-0D9F3A7E6B2C"
+                               Win64="yes">
+                        <File Id="F_QuestPdfSkiaDll"
+                              Name="QuestPdfSkia.dll"
+                              Source="$(var.PublishDir)\QuestPdfSkia.dll"
+                              KeyPath="yes" />
+                    </Component>
+
+                    <Component Id="C_LatoFont"
+                               Guid="2E6B8D1C-9A4F-4B3E-7C2A-5D8F0E6A9B4C"
+                               Win64="yes">
+                        <File Id="F_LatoFont"
+                              Name="QuestPDF.Fonts.Lato.br"
+                              Source="$(var.PublishDir)\QuestPDF.Fonts.Lato.br"
+                              KeyPath="yes" />
+                    </Component>
+                </Directory>
+            </Directory>
+
+            <Directory Id="ProgramMenuFolder">
+                <Directory Id="ApplicationProgramsFolder" Name="Tyler">
+                    <Component Id="C_StartMenuShortcut"
+                               Guid="B5D2A8C3-7E1F-4A6B-9C0D-3E5F8B2A7D4C"
+                               Win64="yes">
+                        <RemoveFolder Id="RemoveApplicationProgramsFolder"
+                                      Directory="ApplicationProgramsFolder"
+                                      On="uninstall" />
+                        <RegistryValue Root="HKCU"
+                                       Key="Software\Tyler Contributors\Tyler"
+                                       Name="installed"
+                                       Type="integer"
+                                       Value="1"
+                                       KeyPath="yes" />
+                        <Shortcut Id="StartMenuTylerShortcut"
+                                  Name="Tyler"
+                                  Description="Tyler - turn tall screenshots into printable multi-page PDFs"
+                                  Target="[INSTALLFOLDER]Tyler.exe"
+                                  WorkingDirectory="INSTALLFOLDER"
+                                  Icon="TylerIcon.ico"
+                                  Advertise="no" />
+                    </Component>
+                </Directory>
+            </Directory>
+        </Directory>
+
+        <!-- Remove the (now empty) install directory on uninstall. -->
+        <Component Id="C_RemoveInstallDir"
+                   Directory="INSTALLFOLDER"
+                   Guid="9F3A7C5E-2B8D-4E1A-6C0F-4D9B7E3A5C8D"
+                   Win64="yes">
+            <RemoveFolder Id="RemoveInstallFolder"
+                          Directory="INSTALLFOLDER"
+                          On="uninstall" />
+            <RegistryValue Root="HKCU"
+                           Key="Software\Tyler Contributors\Tyler"
+                           Name="installdir"
+                           Type="string"
+                           Value="[INSTALLFOLDER]"
+                           KeyPath="yes" />
+        </Component>
+
+        <Feature Id="ProductFeature"
+                 Title="Tyler"
+                 Level="1"
+                 Display="expand"
+                 AllowAdvertise="no">
+            <ComponentRef Id="C_TylerExe" />
+            <ComponentRef Id="C_qpdfDll" />
+            <ComponentRef Id="C_QuestPdfSkiaDll" />
+            <ComponentRef Id="C_LatoFont" />
+            <ComponentRef Id="C_StartMenuShortcut" />
+            <ComponentRef Id="C_RemoveInstallDir" />
+        </Feature>
+    </Product>
+
+</Wix>

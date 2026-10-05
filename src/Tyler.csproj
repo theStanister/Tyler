@@ -1,0 +1,90 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <AssemblyName>Tyler</AssemblyName>
+    <RootNamespace>Tyler</RootNamespace>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <!-- The Win32 GUI (TylerGui.cs) registers its window class with an
+         [UnmanagedCallersOnly] window procedure, which requires taking an
+         unmanaged function pointer (unsafe). This is the AOT-safe callback
+         pattern and introduces no runtime dependency. -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+
+    <!-- ==== Native AOT ==== -->
+    <!-- Publish a self-contained native executable with no .NET runtime and no
+         external installs. QuestPDF supplies its own native libraries in the
+         publish directory (see below). -->
+    <PublishAot>true</PublishAot>
+    <TrimMode>link</TrimMode>
+    <SuppressTrimAnalysisWarnings>false</SuppressTrimAnalysisWarnings>
+    <TrimmerSingleWarn>false</TrimmerSingleWarn>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <SelfContained>true</SelfContained>
+    <PublishSingleFile>true</PublishSingleFile>
+    <!-- QuestPDF 2026.x renders via its own managed assembly plus two native
+         libraries (qpdf.dll, QuestPdfSkia.dll) and the embedded Lato font data
+         (QuestPDF.Fonts.Lato.br). Native AOT cannot embed these native support
+         files inside the executable, so the publish output is the native exe
+         plus those three support files in the same directory. This is the
+         officially supported QuestPDF deployment model and keeps the app free
+         of any runtime (self-contained) and of system font dependencies. -->
+    <!-- Native AOT cannot compress/bundle QuestPDF's native support files into
+         the executable. Publish output is the native exe plus three support
+         files (qpdf.dll, QuestPdfSkia.dll, QuestPDF.Fonts.Lato.br) in the same
+         directory — the officially supported QuestPDF deployment model, with no
+         .NET runtime or system-font dependency. -->
+    <OptimizationPreference>Speed</OptimizationPreference>
+    <IlcGenerateStackTraceData>false</IlcGenerateStackTraceData>
+    <IlcTrimMetadata>true</IlcTrimMetadata>
+    <StripSymbols>true</StripSymbols>
+
+    <!-- ==== Runtime identifiers ====
+         x86   -> win-x86
+         x64   -> win-x64, linux-x64
+         ARM64 -> win-arm64, linux-arm64
+         Override the default with: dotnet publish -c Release -r <rid> -->
+    <RuntimeIdentifiers>win-x64;win-x86;win-arm64;linux-x64;linux-arm64</RuntimeIdentifiers>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+
+    <!-- Any compiler/trimmer warning in this project breaks the build. -->
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+
+    <!-- Tyler's exe icon: the multi-resolution installer icon regenerated from
+         docs/Tyler-icon.png by src/installer/tools/IconGen. -->
+    <ApplicationIcon>installer\Tyler.ico</ApplicationIcon>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Embed the same icon so the runtime window can load it AOT-safely for
+         WM_SETICON (taskbar + title-bar). Embedded resources are never trimmed
+         by Native AOT. -->
+    <EmbeddedResource Include="installer\Tyler.ico" LogicalName="Tyler.ico" />
+  </ItemGroup>
+
+  <!-- The standalone IconGen tool lives under src/installer/tools/IconGen with
+       its own project; keep its sources AND its bin/obj generated files out of
+       this project's default globs so Tyler only compiles Tyler's own code. -->
+  <ItemGroup>
+    <Compile Remove="installer\tools\IconGen\**\*.cs" />
+    <None Remove="installer\tools\IconGen\**\*" />
+    <EmbeddedResource Remove="installer\tools\IconGen\**\*" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- ImageSharp 3.1.12 (final 3.x): pure managed, AOT/trimming safe for
+         load/crop/encode. 4.x enforces a paid Six Labors license key at build
+         time, which this project does not have; 3.x remains fully open and is
+         the version covered by Six Labors' Native AOT guidance. -->
+    <PackageReference Include="SixLabors.ImageSharp" Version="3.1.12" />
+    <!-- QuestPDF 2026.9.1 (>= 2025.7.4 per spec): ships a native net10.0 target,
+         AOT/trimming clean (no IL warnings under Native AOT), and bundles its own
+         native rendering engine + embedded Lato font in the package, so no system
+         fonts or third-party native installs are needed. -->
+    <PackageReference Include="QuestPDF" Version="2026.9.1" />
+  </ItemGroup>
+
+</Project>
